@@ -1,0 +1,15 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Rename Script to UPC
+'Uses Hook 10120
+V.Passed.000068.Set("UPC")
+
+Program.Sub.Main.End
+
+
