@@ -1,0 +1,225 @@
+Program.Sub.ScreenSU.Start
+gui.UPC..create
+gui.UPC..caption("UPC Code")
+gui.UPC..size(2625,2475)
+gui.UPC..position(0,0)
+gui.UPC..event(unload,upc_unload)
+gui.UPC..alwaysontop(False)
+gui.UPC..fontname("Arial")
+gui.UPC..fontsize(8)
+gui.UPC..forecolor(0)
+gui.UPC..fontstyle(,,,,)
+gui.UPC..BackColor(-2147483633)
+gui.UPC..controlbox(True)
+gui.UPC..maxbutton(False)
+gui.UPC..minbutton(True)
+gui.UPC..mousepointer(0)
+gui.UPC..moveable(True)
+gui.UPC..sizeable(True)
+gui.UPC..ShowInTaskBar(True)
+gui.UPC..titlebar(True)
+gui.UPC.frameupc.create(frame)
+gui.UPC.frameupc.caption("UPC Code")
+gui.UPC.frameupc.size(2175,1455)
+gui.UPC.frameupc.position(100,0)
+gui.UPC.frameupc.visible(True)
+gui.UPC.frameupc.fontname("Arial")
+gui.UPC.frameupc.fontsize(8)
+gui.UPC.txtUPC.create(textbox)
+gui.UPC.txtUPC.text("")
+gui.UPC.txtUPC.visible(True)
+gui.UPC.txtUPC.size(1530,315)
+gui.UPC.txtUPC.zorder(0)
+gui.UPC.txtUPC.position(290,900)
+gui.UPC.txtUPC.enabled(True)
+gui.UPC.txtUPC.parent("frameupc")
+gui.UPC.txtUPC.fontname("Arial")
+gui.UPC.txtUPC.fontsize(8)
+gui.UPC.txtUPC.maxLength(12)
+gui.UPC.txtUPC.BackColor(-2147483643)
+gui.UPC.chkupc.create(checkbox)
+gui.UPC.chkupc.caption("Use UPC")
+gui.UPC.chkupc.visible(True)
+gui.UPC.chkupc.size(1095,210)
+gui.UPC.chkupc.zorder(0)
+gui.UPC.chkupc.position(395,410)
+gui.UPC.chkupc.enabled(True)
+gui.UPC.chkupc.parent("frameupc")
+gui.UPC.chkupc.fontname("Arial")
+gui.UPC.chkupc.fontsize(8)
+gui.UPC.chkupc.event(click,chkupc_click)
+gui.UPC.cmdSave.create(button)
+gui.UPC.cmdSave.caption("Save / Close")
+gui.UPC.cmdSave.visible(True)
+gui.UPC.cmdSave.size(1140,375)
+gui.UPC.cmdSave.zorder(0)
+gui.UPC.cmdSave.position(550,1500)
+gui.UPC.cmdSave.enabled(True)
+gui.UPC.cmdSave.fontname("Arial")
+gui.UPC.cmdSave.fontsize(8)
+gui.UPC.cmdSave.event(click,cmdsave_click)
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'This is the HARGER UPC CODE Field Addition
+'Runs on Hook 10210
+V.global.part.Declare(String)
+V.Local.rev.Declare(String)
+V.Local.sSQL.Declare(String)
+V.Local.sLocation.Declare(String)
+
+Gui.UPC..Show
+
+F.ODBC.Connection!conn.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+'Create GS part number
+F.Intrinsic.String.RPad(V.Passed.000007," ",17,V.global.part)
+F.Intrinsic.String.RPad(V.passed.000008," ",3,V.Local.rev)
+F.Intrinsic.String.Concat(V.global.part,V.Local.rev,V.global.part)
+
+'F.Intrinsic.String.GSSPartString("p","a",V.Local.part)
+'F.Intrinsic.String.GSSPartString(V.Passed.000007,V.Passed.000008,V.Local.part)
+
+V.Local.sLocation.Set("")
+F.Intrinsic.Control.If(V.Passed.000009.Trim,<>,"")
+	F.Intrinsic.String.Concat(" and LOC = '",V.Passed.000009.Trim,"' ",V.Local.sLocation)
+F.Intrinsic.Control.EndIf
+'Query database for UPC code
+F.Intrinsic.String.Concat("Select * from ATG_15_UPC_CODE where PART='",V.global.part,"' ",V.Local.sLocation," and COMPANY='",V.Caller.CompanyCode,"'",V.Local.sSQL)
+F.ODBC.Connection!conn.OpenRecordsetRW("rst",V.Local.sSQL)
+
+
+'If not found uncheck use UPC and disable else populate text box and check use UPC
+F.Intrinsic.Control.If(V.ODBC.conn!rst.EOF,=,True)
+	Gui.UPC.chkupc.Value("")
+	Gui.UPC.txtUPC.Enabled(FALSE)
+F.Intrinsic.Control.Else
+	Gui.UPC.txtUPC.Text(V.ODBC.conn!rst.FieldValtrim!UPC)
+	Gui.UPC.chkupc.Value("1")
+F.Intrinsic.Control.EndIf
+
+
+
+Program.Sub.Main.End
+
+program.sub.upc_unload.start
+F.ODBC.conn!rst.Close
+F.Intrinsic.Control.End
+
+program.sub.upc_unload.end
+
+program.sub.cmdsave_click.start
+V.Local.sSQL.Declare(String)
+V.Local.sUPC.Declare(String)
+
+F.Intrinsic.String.Concat("SELECT * from ATG_UPC_OPTIONS where COMPANY = '",V.Caller.CompanyCode,"'",V.Local.sSQL)
+F.ODBC.Connection!conn.OpenRecordsetRO("rst2",V.Local.sSQL)
+'Check for options
+F.Intrinsic.Control.If(V.ODBC.conn!rst2.EOF,=,True)
+	F.Intrinsic.UI.Msgbox("UPC OPTIONS NEED TO BE SETUP FOR THIS COMPANY","SETUP ERROR")
+	F.ODBC.conn!rst2.Close
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+
+'Check if autonumber is disabled and allow user to enter a UPC code
+F.Intrinsic.Control.If(V.ODBC.conn!rst2.FieldVal!AUTONUM,<>,"1")
+	Gui.UPC.txtUPC.Enabled(TRUE)
+	F.Intrinsic.Control.If(V.Screen.UPC!chkupc.Value,=,1)
+		F.Intrinsic.Control.If(V.Screen.UPC!txtUPC.Text,=,"")
+			F.Intrinsic.UI.Msgbox("UPC CODE MUST NOT BE BLANK!","ERROR")
+				F.ODBC.conn!rst2.Close
+			F.Intrinsic.Control.ExitSub
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.If(V.Screen.UPC!txtUPC.Text.isnumeric,=,false)
+			F.Intrinsic.UI.Msgbox("UPC CODE MUST BE NUMERIC!","ERROR")
+				F.ODBC.conn!rst2.Close
+			F.Intrinsic.Control.ExitSub
+		F.Intrinsic.Control.EndIf
+
+		F.Intrinsic.Control.If(V.ODBC.conn!rst.EOF,=,True)
+			F.ODBC.conn!rst.AddNew
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.String.LPad(V.Screen.UPC!txtUPC.Text,"0",12,V.Local.sUPC)
+		F.ODBC.conn!rst.Set!UPC(V.Local.sUPC)
+		F.ODBC.conn!rst.Set!PART(V.Global.part)
+		F.ODBC.conn!rst.Set!COMPANY(V.Caller.CompanyCode)
+		F.ODBC.conn!rst.Set!LOC(V.Passed.000009)
+		F.ODBC.conn!rst.Update
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIF
+
+	F.ODBC.conn!rst2.Close
+F.Intrinsic.Control.CallSub(Upc_unload)
+
+program.sub.cmdsave_click.end
+
+program.sub.chkupc_click.start
+V.Local.sSQL.Declare(String)
+V.Local.UPC.Declare(Float)
+V.Local.sUPC.Declare(String)
+V.Local.check.Declare(String)
+
+'Query UPC options
+F.Intrinsic.String.Concat("SELECT * from ATG_UPC_OPTIONS where COMPANY = '",V.Caller.CompanyCode,"'",V.Local.sSQL)
+F.ODBC.Connection!conn.OpenRecordsetRO("rst2",V.Local.sSQL)
+'If options need to be setup stop sub
+F.Intrinsic.Control.If(V.ODBC.conn!rst2.EOF,=,True)
+	F.Intrinsic.UI.Msgbox("UPC OPTIONS NEED TO BE SETUP FOR THIS COMPANY","SETUP ERROR")
+	F.ODBC.conn!rst2.Close
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+
+Gui.UPC.txtUPC.Enabled(TRUE)
+V.Local.check.Set(V.Screen.UPC!chkupc.Value)
+'If checked and autonumber enabled create new upc code else delete it. If other option exists do nothing
+F.Intrinsic.Control.If(V.Local.check,<>,0)
+	F.Intrinsic.Control.If(V.ODBC.conn!rst2.FieldVal!AUTONUM,=,"1")
+		Gui.UPC.txtUPC.Enabled(false)
+		F.ODBC.conn!rst.Requery
+		F.Intrinsic.Control.If(V.ODBC.conn!rst.EOF,=,True)
+
+			F.Intrinsic.String.Concat("select MAX(UPC) AS UPC from ATG_15_UPC_CODE where COMPANY='",V.Caller.CompanyCode,"' AND UPC >= '",V.ODBC.conn!rst2.FieldVal!START,"'",V.Local.sSQL)
+			F.ODBC.Connection!conn.OpenRecordsetRW("rst3",V.Local.sSQL)
+			F.Intrinsic.Control.If(V.ODBC.conn!rst3.EOF,=,False)
+				F.Intrinsic.Control.If(V.ODBC.conn!rst3.FieldVal!UPC,<>,"")
+					F.Intrinsic.Math.Add(V.ODBC.conn!rst3.FieldVal!UPC,1,V.Local.UPC)
+				F.Intrinsic.Control.Else
+					V.Local.UPC.Set(V.ODBC.conn!rst2.FieldVal!START)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.Else
+				V.Local.UPC.Set(V.ODBC.conn!rst2.FieldVal!START)
+			F.Intrinsic.Control.EndIf
+
+			F.Intrinsic.String.LPad(V.Local.UPC,"0",11,V.Local.sUPC)
+			Gui.UPC.txtUPC.Text(V.Local.sUPC)
+			F.ODBC.conn!rst.AddNew
+			F.ODBC.conn!rst.Set!UPC(V.Local.sUPC)
+			F.ODBC.conn!rst.Set!PART(V.Global.part)
+			F.ODBC.conn!rst.Set!COMPANY(V.Caller.CompanyCode)
+			F.ODBC.conn!rst.Set!LOC(V.Passed.000009)
+			F.ODBC.conn!rst.Update
+			F.ODBC.conn!rst3.Close
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Elseif(V.Local.check,=,0)
+	F.Intrinsic.String.Concat("DELETE FROM ATG_15_UPC_CODE WHERE PART ='",V.global.part,"' and LOC='",V.passed.000009,"'",V.local.sSQL)
+	F.ODBC.Connection!conn.Execute(V.Local.sSQL)
+	Gui.UPC.txtUPC.Text("")
+	Gui.UPC.txtUPC.Enabled(FALSE)
+F.Intrinsic.Control.EndIf
+
+
+F.ODBC.conn!rst2.Close
+
+F.Intrinsic.Control.ExitSub
+
+program.sub.chkupc_click.end
+
+
